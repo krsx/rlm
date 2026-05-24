@@ -261,7 +261,11 @@ class RLM:
             if not self.persistent and hasattr(environment, "cleanup"):
                 environment.cleanup()
 
-    def _setup_prompt(self, prompt: str | dict[str, Any]) -> list[dict[str, Any]]:
+    def _setup_prompt(
+        self,
+        prompt: str | dict[str, Any],
+        root_prompt: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Setup the system prompt for the RLM. Also include metadata about the prompt and build
         up the initial message history.
@@ -271,6 +275,7 @@ class RLM:
             system_prompt=self.system_prompt,
             query_metadata=metadata,
             custom_tools=self.custom_tools,
+            root_prompt=root_prompt,
         )
         if self.compaction:
             message_history[0]["content"] += (
@@ -310,7 +315,7 @@ class RLM:
             self.logger.clear_iterations()
 
         with self._spawn_completion_context(prompt) as (lm_handler, environment):
-            message_history = self._setup_prompt(prompt)
+            message_history = self._setup_prompt(prompt, root_prompt=root_prompt)
 
             compaction_count = 0
             try:
@@ -333,7 +338,6 @@ class RLM:
                                 lm_handler, environment, message_history, compaction_count
                             )
 
-                    # Current prompt = message history + additional prompt suffix
                     context_count = (
                         environment.get_context_count()
                         if isinstance(environment, SupportsPersistence)
@@ -344,12 +348,22 @@ class RLM:
                         if isinstance(environment, SupportsPersistence)
                         else 0
                     )
-                    current_prompt = message_history + [
-                        build_user_prompt(root_prompt, i, context_count, history_count)
-                    ]
+                    # Fully prefixed trajectory: persist the per-turn user prompt
+                    # into message_history so the model sees a single continuous
+                    # [system, metadata, user_0, assistant_0, repl_0, user_1, ...]
+                    # chain across turns.
+                    message_history.append(
+                        build_user_prompt(
+                            root_prompt,
+                            i,
+                            context_count,
+                            history_count,
+                            max_iterations=self.max_iterations,
+                        )
+                    )
 
                     iteration: RLMIteration = self._completion_turn(
-                        prompt=current_prompt,
+                        prompt=message_history,
                         lm_handler=lm_handler,
                         environment=environment,
                     )

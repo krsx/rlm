@@ -161,7 +161,8 @@ class TestFormatIteration:
         assert len(messages) == 2
         assert messages[0]["role"] == "assistant"
         assert messages[1]["role"] == "user"
-        assert "x = 1 + 2" in messages[1]["content"]
+        assert "REPL output:" in messages[1]["content"]
+        assert "3" in messages[1]["content"]
 
     def test_iteration_without_code_blocks(self):
         iteration = RLMIteration(

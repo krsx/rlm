@@ -30,30 +30,42 @@ def format_iteration(
     the prompt of the LM in the next iteration. We also truncate code execution results
     that exceed the max_character_length.
 
+    Each iteration produces exactly two messages in history: one assistant
+    turn containing the model's response (with any ```repl``` blocks
+    embedded), followed by a single user message that concatenates the
+    outputs of all executed code blocks in that turn. This keeps the
+    per-turn shape assistant-then-user even when the model emits several
+    blocks in one response, and avoids redundantly echoing the code
+    (which is already in the assistant message) back in the user reply.
+    Each block's output is still individually truncated at
+    ``max_character_length``.
+
     Args:
         iteration: The iteration to format
-        max_character_length: The maximum character length of the result
+        max_character_length: Per-block cap on the formatted execution
+            result. Longer outputs are tail-trimmed.
 
     Returns:
-        A list of messages to add to the next prompt
+        A list of messages to add to the next prompt — always length 1
+        (just the assistant) when no code was run, or length 2 (assistant
+        + one combined user reply) otherwise.
     """
     messages = [{"role": "assistant", "content": iteration.response}]
 
-    for code_block in iteration.code_blocks:
-        code = code_block.code
-        result = code_block.result
-        result = format_execution_result(result)
+    parts = []
+    multi = len(iteration.code_blocks) > 1
+    for i, code_block in enumerate(iteration.code_blocks):
+        result = format_execution_result(code_block.result)
         if len(result) > max_character_length:
             result = (
                 result[:max_character_length]
                 + f"... + [{len(result) - max_character_length} chars...]"
             )
+        header = f"REPL output (block {i + 1}):" if multi else "REPL output:"
+        parts.append(f"{header}\n{result}")
 
-        execution_message = {
-            "role": "user",
-            "content": f"Code executed:\n```python\n{code}\n```\n\nREPL output:\n{result}",
-        }
-        messages.append(execution_message)
+    if parts:
+        messages.append({"role": "user", "content": "\n\n".join(parts)})
     return messages
 
 
