@@ -148,14 +148,25 @@ If you use this code or repository in your research, please cite:
 }
 ```
 
-## Optional: Trajectory metadata and logging
+## RLMs in the Wild
+There are many amazing demos and production-ready use cases of RLMs. We provide a list of notable examples that explicitly use RLMs as a central piece of their design.
+* [DSPy.RLM](https://github.com/stanfordnlp/dspy) <a href="https://github.com/stanfordnlp/dspy/stargazers"><img src="https://badgen.net/github/stars/stanfordnlp/dspy?icon=github&label=Stars" height="14" alt="GitHub stars"></a>
+* [Ax](https://github.com/ax-llm/ax) <a href="https://github.com/ax-llm/ax/stargazers"><img src="https://badgen.net/github/stars/ax-llm/ax?icon=github&label=Stars" height="14" alt="GitHub stars"></a>
+* [context-labs/HALO: **RLM-based Automatic Agent Optimization Loop**](https://github.com/context-labs/halo) <a href="https://github.com/context-labs/halo/stargazers"><img src="https://badgen.net/github/stars/context-labs/halo?icon=github&label=Stars" height="14" alt="GitHub stars"></a>
+* [viplismism/rlm-cli: **CLI for Recursive Language Models**](https://github.com/viplismism/rlm-cli) <a href="https://github.com/viplismism/rlm-cli/stargazers"><img src="https://badgen.net/github/stars/viplismism/rlm-cli?icon=github&label=Stars" height="14" alt="GitHub stars"></a>
+* [alphaXiv Official Blog. **Reinforcing Recursive Language Models**](https://www.alphaxiv.org/blog/reinforcement-learning-for-rlms#training)
+* [Daytona. **Building Deep Recursive Language Models**](https://www.daytona.io/docs/en/guides/rlm/recursive-language-models/)
+* [Symbolica. **SotA ARC-AGI-2 Results with REPL Agents**](https://www.symbolica.ai/blog/arcgentica)
+* [Google Cloud Community Articles. **RLMs in ADK**](https://discuss.google.dev/t/recursive-language-models-in-adk/)
+* [Prime Intellect Blog. **Recursive Language Models: *the* paradigm of 2026**](https://www.primeintellect.ai/blog/rlm)
+
+## Optional: Trajectory metadata, logging, and debugging
 `RLMChatCompletion` has an optional `metadata` field (default `None`) that holds the full trajectory (run config + all iterations and sub-calls) so you can reconstruct the run. Pass an `RLMLogger` to capture it:
 
 - **In-memory only** (trajectory on `completion.metadata`): `logger=RLMLogger()` (no `log_dir`).
 - **Also save to disk** (JSONL for the visualizer): `logger=RLMLogger(log_dir="./logs")`.
 
-## Optional Debugging: Visualizing RLM Trajectories
-We provide a simple visualizer to inspect code, sub-LM, and root-LM calls. Use `RLMLogger(log_dir="./logs")` so each completion writes a `.jsonl` file:
+**Visualizing logs.** We also provide a simple visualizer to inspect code, sub-LM, and root-LM calls. Use `RLMLogger(log_dir="./logs")` so each completion writes a `.jsonl` file:
 ```python
 from rlm.logger import RLMLogger
 from rlm import RLM
@@ -169,8 +180,3 @@ To run the visualizer locally, we use Node.js and shadcn/ui:
 cd visualizer/
 npm run dev        # default localhost:3001
 ```
-
-You'll have the option to select saved `.jsonl` files 
-<p align="center">
-  <img src="media/visualizer.png" alt="RLM Visualizer Example" width="800"/>
-</p>
