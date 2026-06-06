@@ -550,7 +550,7 @@ The following functions are available to model-generated code inside the REPL:
 | Function | Description |
 |:---------|:------------|
 | `llm_query(prompt, model=None)` | Single plain LM completion. Fast, no REPL or iteration. |
-| `llm_query_batched(prompts, model=None)` | Multiple plain LM completions concurrently. |
+| `llm_query_batched(prompts, model=None)` | Multiple plain LM completions concurrently. A single failed call doesn't fail the batch — that slot returns `"Error: llm() call failed - <msg>"`, the rest return normally. |
 | `rlm_query(prompt, model=None)` | Spawn a child RLM with its own REPL for deeper thinking. Falls back to `llm_query` at max depth. |
 | `rlm_query_batched(prompts, model=None)` | Spawn multiple child RLMs. Falls back to `llm_query_batched` at max depth. |
 | `answer` | A dict (`{"content": "", "ready": False}`). Set `answer["content"]` to your final answer and `answer["ready"] = True` to terminate the run. |

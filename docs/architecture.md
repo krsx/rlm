@@ -227,6 +227,12 @@ all prompts as a single batched request to the handler, which processes them
 concurrently with `asyncio.gather`. `rlm_query_batched` calls `subcall_fn`
 sequentially for each prompt (each child RLM is a blocking call).
 
+**Failure handling is per-prompt.** A single failed call does not fail the
+whole batch — that slot returns the string `"Error: llm() call failed - <msg>"`
+(with the underlying error message) while the other prompts return their real
+responses. Results stay aligned with the input prompts by index, so the list is
+always the same length as `prompts`.
+
 ---
 
 ## Recursive Sub-Calls (Depth > 1)

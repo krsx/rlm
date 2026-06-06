@@ -255,9 +255,12 @@ def send_lm_request_batched(
         if response.chat_completions is None:
             return [LMResponse.error_response("No completions returned")] * len(prompts)
 
-        # Convert batched response to list of individual responses
+        # Convert batched response to list of individual responses. A completion
+        # carrying an error means only that prompt failed; the rest still succeed.
         return [
-            LMResponse.success_response(chat_completion)
+            LMResponse.error_response(chat_completion.error)
+            if chat_completion.error
+            else LMResponse.success_response(chat_completion)
             for chat_completion in response.chat_completions
         ]
     except Exception as e:

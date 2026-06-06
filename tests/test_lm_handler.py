@@ -30,6 +30,28 @@ def test_lm_handler_batched_request():
         assert resp.chat_completion.response == f"r{i}"
 
 
+def test_lm_handler_batched_partial_failure():
+    """One failing call returns an error for that slot; the rest still succeed."""
+
+    def response_fn(prompt):
+        if prompt == "prompt-1":
+            raise RuntimeError("boom")
+        return f"ok {prompt}"
+
+    mock = MockLM(response_fn=response_fn)
+    with LMHandler(client=mock, batch_max_concurrent=3) as handler:
+        prompts = ["prompt-0", "prompt-1", "prompt-2"]
+        result = send_lm_request_batched(handler.address, prompts)
+
+    assert len(result) == 3
+    assert result[0].success
+    assert result[0].chat_completion.response == "ok prompt-0"
+    assert not result[1].success
+    assert "boom" in result[1].error
+    assert result[2].success
+    assert result[2].chat_completion.response == "ok prompt-2"
+
+
 def test_lm_handler_batched_many_prompts_semaphore_cap():
     """Many prompts complete successfully with semaphore limiting concurrency."""
     # 50 prompts, max 4 concurrent: should still all complete
