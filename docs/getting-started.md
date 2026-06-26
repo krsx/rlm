@@ -214,7 +214,9 @@ rlm = RLM(
 
 ### Docker
 
-Code runs in a Docker container with full isolation.
+Code runs in a Docker container with full isolation. A lightweight host-side
+proxy bridges LM access back into the container, so the container never needs
+API keys or direct network access to the model provider.
 
 ```python
 rlm = RLM(
@@ -227,7 +229,19 @@ rlm = RLM(
 )
 ```
 
-**Pros:** Containerized isolation, reproducible  
+`DockerREPL` supports the same capabilities as the local environment:
+
+- `llm_query` / `llm_query_batched` — single LM completions
+- `rlm_query` / `rlm_query_batched` — recursive sub-RLM calls (with `max_depth > 1`),
+  including parallel batched sub-calls bounded by `max_concurrent_subcalls`
+- `custom_tools` / `custom_sub_tools` — injected functions/data (pass as Python
+  code strings or JSON-serializable values, since host callables cannot cross
+  the container boundary)
+- `persistent=True` — multi-turn sessions; the container and its namespace are
+  kept alive across `completion()` calls, with versioned `context_N` / `history_N`
+- `compaction=True` — auto-summarizes the running `history` when context fills up
+
+**Pros:** Containerized isolation, reproducible, full feature parity with local  
 **Cons:** Requires Docker, slower startup
 
 ### Modal

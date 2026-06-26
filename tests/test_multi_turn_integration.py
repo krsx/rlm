@@ -335,7 +335,7 @@ class TestPersistentModeValidation:
             RLM(
                 backend="openai",
                 backend_kwargs={"model_name": "test"},
-                environment="docker",  # Not supported for persistent
+                environment="modal",  # Isolated env without persistence support
                 persistent=True,
             )
 
@@ -346,6 +346,18 @@ class TestPersistentModeValidation:
             backend="openai",
             backend_kwargs={"model_name": "test"},
             environment="local",
+            persistent=True,
+        )
+        assert rlm.persistent is True
+
+    def test_docker_environment_supported(self):
+        """Docker environment should support persistent mode (no error at init)."""
+        # Should not raise during validation (container is only created on
+        # completion(), so this stays lightweight).
+        rlm = RLM(
+            backend="openai",
+            backend_kwargs={"model_name": "test"},
+            environment="docker",
             persistent=True,
         )
         assert rlm.persistent is True

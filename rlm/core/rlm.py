@@ -272,15 +272,17 @@ class RLM:
             env_kwargs["lm_handler_address"] = (lm_handler.host, lm_handler.port)
             env_kwargs["context_payload"] = prompt
             env_kwargs["depth"] = self.depth + 1  # Environment depth is RLM depth + 1
-            # For local/ipython environments with max_depth > 1, pass subcall callback for recursive RLM calls
-            if self.environment_type in ("local", "ipython") and self.max_depth > 1:
+            # For environments that support recursive RLM calls, pass the subcall
+            # callback when max_depth > 1. local/ipython invoke it in-process;
+            # docker invokes it via its host-side proxy (/rlm_query endpoints).
+            if self.environment_type in ("local", "ipython", "docker") and self.max_depth > 1:
                 env_kwargs["subcall_fn"] = self._subcall
             # Pass custom tools to the environment
             if self.custom_tools is not None:
                 env_kwargs["custom_tools"] = self.custom_tools
             if self.custom_sub_tools is not None:
                 env_kwargs["custom_sub_tools"] = self.custom_sub_tools
-            if self.compaction and self.environment_type == "local":
+            if self.compaction and self.environment_type in ("local", "docker"):
                 env_kwargs["compaction"] = True
             env_kwargs["max_concurrent_subcalls"] = self.max_concurrent_subcalls
             environment: BaseEnv = get_environment(self.environment_type, env_kwargs)
@@ -876,13 +878,13 @@ class RLM:
         - add_context(payload, index): Add new context for multi-turn conversations
         - get_context_count(): Return the number of loaded contexts
 
-        Currently only 'local' (LocalREPL) supports these methods.
+        Currently 'local', 'ipython', and 'docker' support these methods.
 
         Raises:
             ValueError: If the environment type does not support persistent mode.
         """
         # Known environments that support persistence
-        persistent_supported_environments = {"local", "ipython"}
+        persistent_supported_environments = {"local", "ipython", "docker"}
 
         if self.environment_type not in persistent_supported_environments:
             raise ValueError(

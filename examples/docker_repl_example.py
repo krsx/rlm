@@ -1,16 +1,24 @@
 """
-Docker REPL example with code execution and LLM queries.
+Docker REPL example with code execution, LLM queries, recursive sub-RLM calls,
+and custom tools.
 
 Setup:
     1. Ensure Docker is running
     2. Run: python -m examples.docker_repl_example
 
 The default image (python:3.11-slim) will be pulled automatically.
+
+Persistence and compaction:
+    DockerREPL also supports multi-turn persistence and compaction. Drive them
+    through the RLM rather than the env directly, e.g.:
+
+        rlm = RLM(backend=..., environment="docker", persistent=True)   # multi-turn
+        rlm = RLM(backend=..., environment="docker", compaction=True)   # auto-summarize
 """
 
 from rlm.clients.base_lm import BaseLM
 from rlm.core.lm_handler import LMHandler
-from rlm.core.types import ModelUsageSummary, UsageSummary
+from rlm.core.types import ModelUsageSummary, RLMChatCompletion, UsageSummary
 from rlm.environments.docker_repl import DockerREPL
 
 
@@ -60,6 +68,32 @@ def main():
             result = repl.execute_code('rs = llm_query_batched(["Q1", "Q2"])')
             result = repl.execute_code("print(len(rs))")
             print(f"  Batched count: {result.stdout.strip()}")
+
+    # Recursive sub-RLM calls + custom tools
+    print("\n[3] Recursive sub-RLM (rlm_query) + custom tools")
+
+    def mock_subcall(prompt, model=None):
+        # In real use this is RLM._subcall, which spawns a child RLM.
+        return RLMChatCompletion(
+            root_model=model or "child",
+            prompt=prompt,
+            response=f"child-answer({prompt})",
+            usage_summary=UsageSummary(model_usage_summaries={}),
+            execution_time=0.0,
+        )
+
+    with DockerREPL(
+        subcall_fn=mock_subcall,
+        custom_tools={"triple": "def triple(x):\n    return x * 3", "CONST": 7},
+    ) as repl:
+        result = repl.execute_code("print(triple(CONST))")
+        print(f"  custom tools triple(CONST) → {result.stdout.strip()}")
+
+        result = repl.execute_code('print(rlm_query("solve subtask"))')
+        print(f"  rlm_query → {result.stdout.strip()}")
+
+        result = repl.execute_code('print(rlm_query_batched(["a", "b", "c"]))')
+        print(f"  rlm_query_batched → {result.stdout.strip()}")
 
     print("\n" + "=" * 50)
     print("Done!")
