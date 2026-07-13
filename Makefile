@@ -19,7 +19,7 @@ Records:
 2. The mobile application crashes immediately after login. Resolution time: 42 minutes.
 3. Customer forgot their password and cannot access the account. Resolution time: 12 minutes.
 4. Package arrived three days later than promised. Resolution time: 35 minutes.
-5. Refund has not appeared on the customer’s credit card. Resolution time: 28 minutes.
+5. Refund has not appeared on the customers credit card. Resolution time: 28 minutes.
 6. Website displays a blank screen during checkout. Resolution time: 50 minutes.
 7. Customer wants to change the email linked to the account. Resolution time: 16 minutes.
 8. Tracking states delivered, but the package was not received. Resolution time: 55 minutes.
@@ -31,6 +31,7 @@ Required output format:
 endef
 
 PROMPT ?= $(DEFAULT_PROMPT)
+export PROMPT
 
 help:
 	@echo "RLM Examples Makefile"
@@ -85,7 +86,7 @@ vllm-pull:
 # Specify the GPU used by changing the device number in --gpus '"device=1"' and CUDA_VISIBLE_DEVICES=0.
 # For example, to use GPU 0, change --gpus '"device=0"' and CUDA_VISIBLE_DEVICES=0.
 vllm-up:
-	docker run --runtime nvidia --gpus '"device=1"' \ 
+	docker run --runtime nvidia --gpus '"device=1"' \
 		-e CUDA_VISIBLE_DEVICES=0 \
 		-e CUDA_DEVICE_ORDER=PCI_BUS_ID \
 		-p 8000:8000 \
@@ -99,7 +100,7 @@ vllm-health:
 	curl -fsS http://localhost:8000/v1/models
 
 simple-infer:
-	uv run python -m examples.simple_inference --model $(MODEL) --prompt "$(PROMPT)"
+	uv run python -m examples.simple_inference --model $(MODEL) --prompt "$$PROMPT"
 
 benchmark-oolong:
 	uv run --with datasets --with python-dateutil python -m examples.benchmark_oolong --model $(MODEL)
