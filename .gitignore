@@ -4,6 +4,9 @@
 # Logs
 logs/
 
+# Local benchmark snapshots
+data/benchmarks/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

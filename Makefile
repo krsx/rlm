@@ -1,9 +1,24 @@
 .PHONY: help install install-dev install-modal run-all \
         quickstart docker-repl lm-repl modal-repl \
-        vllm-pull vllm-up vllm-health simple-infer benchmark-oolong \
+        vllm-pull vllm-up vllm-health simple-infer \
+        fetch-benchmarks benchmark-oolong benchmark-oolong-pairs benchmark-codeqa \
         lint format test check
 
 MODEL ?= Qwen/Qwen3-1.7B
+GPU ?= 0
+VLLM_PORT_0 ?= 8000
+VLLM_PORT_1 ?= 8001
+ifneq ($(GPU),0)
+ifneq ($(GPU),1)
+$(error GPU must be 0 or 1)
+endif
+endif
+VLLM_PORT ?= $(VLLM_PORT_$(GPU))
+VLLM_BASE_URL ?= http://localhost:$(VLLM_PORT)/v1
+BENCHMARK_DATA_DIR ?= ./data/benchmarks
+LOG_DIR ?= ./logs
+FETCH_ARGS ?=
+BENCHMARK_ARGS ?=
 
 define DEFAULT_PROMPT
 You are given a collection of customer-support records.
@@ -43,13 +58,18 @@ help:
 	@echo "  make run-all        - Run all examples (requires all deps and API keys)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  GPU=0 or GPU=1 selects the API for all local vLLM commands"
 	@echo "  make quickstart     - Run quickstart.py (needs OPENAI_API_KEY)"
 	@echo "  make docker-repl    - Run docker_repl_example.py (needs Docker)"
 	@echo "  make lm-repl        - Run lm_in_repl.py (needs PORTKEY_API_KEY)"
 	@echo "  make modal-repl     - Run modal_repl_example.py (needs Modal)"
-	@echo "  make vllm-up MODEL=Qwen/Qwen3-0.6B - Start local vLLM OpenAI server"
-	@echo "  make simple-infer MODEL=Qwen/Qwen3-0.6B PROMPT='...' - Run local vLLM RLM inference"
+	@echo "  make vllm-up GPU=0 MODEL=Qwen/Qwen3-0.6B - Start vLLM on GPU 0 (port 8000)"
+	@echo "  make vllm-up GPU=1 MODEL=Qwen/Qwen3-0.6B - Start vLLM on GPU 1 (port 8001)"
+	@echo "  make simple-infer GPU=0 MODEL=Qwen/Qwen3-0.6B PROMPT='...' - Run local vLLM RLM inference"
+	@echo "  make fetch-benchmarks - Download and validate local paper benchmark snapshots"
 	@echo "  make benchmark-oolong MODEL=Qwen/Qwen3-0.6B - Run local vLLM OOLONG benchmark"
+	@echo "  make benchmark-oolong-pairs MODEL=Qwen/Qwen3-0.6B - Run local vLLM OOLONG-Pairs benchmark"
+	@echo "  make benchmark-codeqa MODEL=Qwen/Qwen3-0.6B - Run local vLLM CodeQA benchmark"
 	@echo ""
 	@echo "Development:"
 	@echo "  make lint           - Run ruff linter"
@@ -83,13 +103,13 @@ modal-repl: install-modal
 vllm-pull:
 	docker pull vllm/vllm-openai:latest
 
-# Specify the GPU used by changing the device number in --gpus '"device=1"' and CUDA_VISIBLE_DEVICES=0.
-# For example, to use GPU 0, change --gpus '"device=0"' and CUDA_VISIBLE_DEVICES=0.
+# GPU 0 uses host port 8000; GPU 1 uses host port 8001. Docker exposes the
+# selected physical GPU as device 0 inside its container.
 vllm-up:
-	docker run --runtime nvidia --gpus '"device=1"' \
+	docker run --runtime nvidia --gpus '"device=$(GPU)"' \
 		-e CUDA_VISIBLE_DEVICES=0 \
 		-e CUDA_DEVICE_ORDER=PCI_BUS_ID \
-		-p 8000:8000 \
+		-p $(VLLM_PORT):8000 \
 		-v ~/.cache/huggingface:/root/.cache/huggingface \
 		-e HF_TOKEN \
 		--ipc=host \
@@ -97,13 +117,34 @@ vllm-up:
 		--model $(MODEL)
 
 vllm-health:
-	curl -fsS http://localhost:8000/v1/models
+	curl -fsS $(VLLM_BASE_URL)/models
 
 simple-infer:
-	uv run python -m examples.simple_inference --model $(MODEL) --prompt "$$PROMPT"
+	uv run python -m examples.simple_inference --model $(MODEL) \
+		--base-url $(VLLM_BASE_URL) --prompt "$$PROMPT"
+
+fetch-benchmarks:
+	uv run --with datasets --with huggingface_hub --with ijson \
+		python -m scripts.fetch_benchmarks \
+		--data-dir $(BENCHMARK_DATA_DIR) $(FETCH_ARGS)
 
 benchmark-oolong:
-	uv run --with datasets --with python-dateutil python -m examples.benchmark_oolong --model $(MODEL)
+	uv run --with python-dateutil python -m examples.benchmark_oolong \
+		--model $(MODEL) --base-url $(VLLM_BASE_URL) \
+		--data-dir $(BENCHMARK_DATA_DIR) --log-dir $(LOG_DIR) \
+		$(BENCHMARK_ARGS)
+
+benchmark-oolong-pairs:
+	uv run python -m examples.benchmark_oolong_pairs \
+		--model $(MODEL) --base-url $(VLLM_BASE_URL) \
+		--data-dir $(BENCHMARK_DATA_DIR) --log-dir $(LOG_DIR) \
+		$(BENCHMARK_ARGS)
+
+benchmark-codeqa:
+	uv run python -m examples.benchmark_codeqa \
+		--model $(MODEL) --base-url $(VLLM_BASE_URL) \
+		--data-dir $(BENCHMARK_DATA_DIR) --log-dir $(LOG_DIR) \
+		$(BENCHMARK_ARGS)
 
 lint: install-dev
 	uv run ruff check .

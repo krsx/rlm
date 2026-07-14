@@ -17,16 +17,15 @@ from rlm.logger import RLMLogger
 LOCAL_VLLM_BASE_URL = "http://localhost:8000/v1"
 
 
-def require_vllm_server() -> None:
-    response = requests.get(f"{LOCAL_VLLM_BASE_URL}/models", timeout=5)
+def require_vllm_server(base_url: str) -> None:
+    response = requests.get(f"{base_url}/models", timeout=5)
     response.raise_for_status()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run one RLM completion against local vLLM."
-    )
+    parser = argparse.ArgumentParser(description="Run one RLM completion against local vLLM.")
     parser.add_argument("--model", required=True)
+    parser.add_argument("--base-url", default=LOCAL_VLLM_BASE_URL)
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--max-depth", type=int, default=1)
     parser.add_argument("--max-iterations", type=int, default=10)
@@ -37,17 +36,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    require_vllm_server()
+    require_vllm_server(args.base_url)
 
     logger = RLMLogger(log_dir=args.log_dir)
-    sampling_args = (
-        {"max_tokens": args.max_tokens} if args.max_tokens is not None else None
-    )
+    sampling_args = {"max_tokens": args.max_tokens} if args.max_tokens is not None else None
     rlm = RLM(
         backend="vllm",
         backend_kwargs={
             "model_name": args.model,
-            "base_url": LOCAL_VLLM_BASE_URL,
+            "base_url": args.base_url,
             "api_key": "dummy",
         },
         max_depth=args.max_depth,
