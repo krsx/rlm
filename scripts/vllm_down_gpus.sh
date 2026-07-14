@@ -9,6 +9,6 @@ set -euo pipefail
 CONTAINER_0="rlm-vllm-gpu0"
 CONTAINER_1="rlm-vllm-gpu1"
 
-echo "Stopping vLLM containers..."
-docker stop "$CONTAINER_0" "$CONTAINER_1" >/dev/null 2>&1 || true
+echo "Stopping and removing vLLM containers..."
+docker rm -f "$CONTAINER_0" "$CONTAINER_1" >/dev/null 2>&1 || true
 echo "Done."

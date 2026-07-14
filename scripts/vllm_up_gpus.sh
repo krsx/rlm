@@ -31,7 +31,9 @@ CONTAINER_1="rlm-vllm-gpu1"
 start_vllm() {
   local gpu="$1" model="$2" port="$3" name="$4"
   docker rm -f "$name" >/dev/null 2>&1 || true
-  docker run -d --rm --name "$name" \
+  # No --rm here: if the container crashes on startup we need `docker logs`
+  # to still work afterward. vllm_down_gpus.sh removes it on teardown.
+  docker run -d --name "$name" \
     --runtime nvidia --gpus "\"device=${gpu}\"" \
     -e CUDA_VISIBLE_DEVICES=0 \
     -e CUDA_DEVICE_ORDER=PCI_BUS_ID \
@@ -49,8 +51,10 @@ wait_healthy() {
   echo "Waiting for $name at $base_url ..."
   local waited=0
   until curl -fsS "${base_url}/models" >/dev/null 2>&1; do
-    if ! docker ps --format '{{.Names}}' | grep -qx "$name"; then
-      echo "Container $name exited before becoming healthy:" >&2
+    local state
+    state="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo missing)"
+    if [ "$state" != "running" ]; then
+      echo "Container $name is not running (state: $state). Logs:" >&2
       docker logs "$name" --tail 200 || true
       exit 1
     fi
