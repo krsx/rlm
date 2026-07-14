@@ -300,7 +300,7 @@ def normalize_codeqa(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     }
     for row in rows:
         require_fields(row, {"domain", "sub_domain"}, CODEQA_REPOSITORY)
-        if row["domain"] != "Code Repository Understanding" or row["sub_domain"] != "Code Repo QA":
+        if row["domain"] != "Code Repository Understanding" or row["sub_domain"] != "Code repo QA":
             continue
         require_fields(row, required_fields, CODEQA_REPOSITORY)
         answer = str(row["answer"]).strip().upper()
@@ -326,7 +326,7 @@ def normalize_codeqa(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     if not examples:
-        raise ValueError("LongBench-v2 source contains no Code Repo QA examples")
+        raise ValueError("LongBench-v2 source contains no Code repo QA examples")
     return examples
 
 
@@ -625,12 +625,12 @@ def fetch_codeqa(data_dir: Path, cache_dir: Path, *, force: bool) -> bool:
             ],
             transformations=[
                 "filter domain == Code Repository Understanding",
-                "filter sub_domain == Code Repo QA",
+                "filter sub_domain == Code repo QA",
                 "normalize choices A-D and gold choice",
             ],
             canonical_filter={
                 "domain": "Code Repository Understanding",
-                "sub_domain": "Code Repo QA",
+                "sub_domain": "Code repo QA",
             },
             rows_by_name={"examples": examples},
         )

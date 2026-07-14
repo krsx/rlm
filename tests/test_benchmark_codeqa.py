@@ -62,7 +62,7 @@ def example() -> dict[str, object]:
         "difficulty": "hard",
         "length": "long",
         "domain": "Code Repository Understanding",
-        "sub_domain": "Code Repo QA",
+        "sub_domain": "Code repo QA",
     }
 
 
@@ -75,7 +75,7 @@ def snapshot(rows: list[dict[str, object]] | None = None) -> ValidatedSnapshot:
             "created_at": "2026-07-14T00:00:00Z",
             "canonical_filter": {
                 "domain": "Code Repository Understanding",
-                "sub_domain": "Code Repo QA",
+                "sub_domain": "Code repo QA",
             },
         },
         examples=rows or [example()],

@@ -64,7 +64,7 @@ def codeqa_row(
     *,
     row_id: str = "code-1",
     domain: str = "Code Repository Understanding",
-    sub_domain: str = "Code Repo QA",
+    sub_domain: str = "Code repo QA",
     answer: str = "A",
 ) -> dict[str, str]:
     return {
@@ -306,7 +306,7 @@ def test_normalize_codeqa_keeps_only_code_repo_qa() -> None:
         "difficulty": "hard",
         "length": "long",
         "domain": "Code Repository Understanding",
-        "sub_domain": "Code Repo QA",
+        "sub_domain": "Code repo QA",
     }
 
 
