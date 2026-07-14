@@ -568,11 +568,16 @@ def fetch_oolong_pairs(data_dir: Path, cache_dir: Path, *, force: bool) -> bool:
     contexts: list[dict[str, Any]] = []
     for context_len in PAIR_CONTEXT_LENGTHS:
         matching = contexts_by_length.get(context_len, [])
-        if len(matching) != 1:
-            raise ValueError(
-                f"Expected exactly one OOLONG context for length {context_len}, "
-                f"found {len(matching)}"
-            )
+        if not matching:
+            raise ValueError(f"Missing OOLONG context for pair length {context_len}")
+        # oolong-synth samples multiple independent trec_coarse context windows per
+        # length; oolong-pairs' own reference loader takes the first trec_coarse
+        # example it sees for a given length (`examples[0]`), which is the row order
+        # preserved here via contexts_by_id insertion order in normalize_oolong().
+        # Verified against upstream: for context_len 1024 and 32768, every gold user
+        # ID referenced in oolong-pairs' answers appears in the first context window
+        # and none appear in the later ones, so `matching[0]` is the one the gold
+        # pairs were computed against.
         contexts.append(matching[0])
 
     def builder(staging: Path) -> None:

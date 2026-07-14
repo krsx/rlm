@@ -11,6 +11,7 @@ from scripts.fetch_benchmarks import (
     OOLONG_PAIRS_REVISION,
     OOLONG_REVISION,
     PAIR_CONTEXT_LENGTHS,
+    fetch_oolong_pairs,
     normalize_codeqa,
     normalize_oolong,
     normalize_oolong_pairs,
@@ -191,6 +192,73 @@ def test_stream_pair_examples_normalizes_without_materializing_file(
     assert rows[0]["gold_pairs"] == [[2, 9]]
     assert rows[0]["id"] == "32768:1"
     assert rows[1]["gold_pairs"] == []
+
+
+def test_fetch_oolong_pairs_picks_first_context_window_per_length(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("ijson")
+    data_dir = tmp_path / "data"
+    contexts: list[dict[str, object]] = []
+    examples: list[dict[str, object]] = []
+    for context_len in PAIR_CONTEXT_LENGTHS:
+        # oolong-synth samples two independent trec_coarse context windows per
+        # length (see fetch_oolong_pairs); only the first one in row order is
+        # the one oolong-pairs' gold answers were computed against.
+        contexts.append(
+            {
+                "id": f"trec_coarse-{context_len}-0",
+                "context_len": context_len,
+                "context": f"correct context {context_len}",
+            }
+        )
+        contexts.append(
+            {
+                "id": f"trec_coarse-{context_len}-1",
+                "context_len": context_len,
+                "context": f"other context {context_len}",
+            }
+        )
+        examples.append(
+            {
+                "id": f"ex-{context_len}",
+                "context_id": f"trec_coarse-{context_len}-0",
+                "context_len": context_len,
+            }
+        )
+    write_snapshot(
+        data_dir / "oolong",
+        benchmark="oolong",
+        sources=[
+            {
+                "repository": "oolongbench/oolong-synth",
+                "revision": OOLONG_REVISION,
+                "split": "validation",
+            }
+        ],
+        transformations=["fixture"],
+        canonical_filter={},
+        rows_by_name={"contexts": contexts, "examples": examples},
+        created_at="2026-07-14T00:00:00Z",
+    )
+
+    def fake_hf_hub_download(
+        *, repo_id: str, filename: str, repo_type: str, revision: str, cache_dir: str
+    ) -> str:
+        context_len = filename.removeprefix("data/oolong-pairs-").removesuffix(".json")
+        raw_path = tmp_path / f"raw-{context_len}.json"
+        raw_path.write_text(json.dumps(pair_tasks()), encoding="utf-8")
+        return str(raw_path)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", fake_hf_hub_download)
+
+    assert fetch_oolong_pairs(data_dir, tmp_path / "cache", force=False)
+
+    snapshot = validate_snapshot(data_dir, "oolong_pairs")
+    assert snapshot.context_count == len(PAIR_CONTEXT_LENGTHS)
+    assert {context["context"] for context in snapshot.contexts} == {
+        f"correct context {context_len}" for context_len in PAIR_CONTEXT_LENGTHS
+    }
 
 
 def test_write_pairs_snapshot_streams_all_lengths_and_writes_valid_manifest(
