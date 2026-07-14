@@ -15,6 +15,10 @@ endif
 endif
 VLLM_PORT ?= $(VLLM_PORT_$(GPU))
 VLLM_BASE_URL ?= http://localhost:$(VLLM_PORT)/v1
+# Default is vLLM's own "auto" (bf16 on modern GPUs). Override for GPUs
+# without native bf16 support (e.g. Turing/2080Ti, compute capability < 8.0):
+#   make vllm-up VLLM_DTYPE=half
+VLLM_DTYPE ?= auto
 BENCHMARK_DATA_DIR ?= ./data/benchmarks
 LOG_DIR ?= ./logs
 FETCH_ARGS ?=
@@ -65,6 +69,7 @@ help:
 	@echo "  make modal-repl     - Run modal_repl_example.py (needs Modal)"
 	@echo "  make vllm-up GPU=0 MODEL=Qwen/Qwen3-0.6B - Start vLLM on GPU 0 (port 8000)"
 	@echo "  make vllm-up GPU=1 MODEL=Qwen/Qwen3-0.6B - Start vLLM on GPU 1 (port 8001)"
+	@echo "  make vllm-up VLLM_DTYPE=half - Force fp16 (needed on Turing GPUs like RTX 2080 Ti, no native bf16)"
 	@echo "  make simple-infer GPU=0 MODEL=Qwen/Qwen3-0.6B PROMPT='...' - Run local vLLM RLM inference"
 	@echo "  make fetch-benchmarks - Download and validate local paper benchmark snapshots"
 	@echo "  make benchmark-oolong MODEL=Qwen/Qwen3-0.6B - Run local vLLM OOLONG benchmark"
@@ -114,7 +119,8 @@ vllm-up:
 		-e HF_TOKEN \
 		--ipc=host \
 		vllm/vllm-openai:v0.8.5 \
-		--model $(MODEL)
+		--model $(MODEL) \
+		--dtype $(VLLM_DTYPE)
 
 vllm-health:
 	curl -fsS $(VLLM_BASE_URL)/models
