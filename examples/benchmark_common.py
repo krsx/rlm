@@ -147,6 +147,50 @@ class BenchmarkSpec:
     canonical_example_count: int | None = None
 
 
+class BenchmarkProgressLogger:
+    def __init__(
+        self,
+        model: str,
+        benchmark: str,
+        total_examples: int,
+        *,
+        now: Callable[[], datetime] = datetime.now,
+    ) -> None:
+        self.model = model.rsplit("/", maxsplit=1)[-1]
+        self.benchmark = benchmark
+        self.total_examples = total_examples
+        self.now = now
+
+    def log(
+        self,
+        example_index: int,
+        example_id: str,
+        mode: str,
+        status: str,
+        *,
+        elapsed: float | None = None,
+        score: float | None = None,
+        tokens: int | None = None,
+        error: str = "",
+    ) -> None:
+        fields = [
+            self.now().strftime("%H:%M:%S"),
+            self.model,
+            self.benchmark,
+            f"example {example_index}/{self.total_examples}",
+            f"id={example_id}",
+            mode,
+            status,
+        ]
+        if elapsed is not None:
+            fields.append(f"{elapsed:.1f}s")
+        if status == "done":
+            fields.extend((f"score={score:.3f}", f"tokens={tokens}"))
+        elif status == "error":
+            fields.append(" ".join(error.split()))
+        print(" | ".join(fields), flush=True)
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:
@@ -504,6 +548,12 @@ def run_benchmark(
         config.model,
         started_at,
     )
+    progress = BenchmarkProgressLogger(
+        config.model,
+        spec.benchmark,
+        len(selected),
+        now=now,
+    )
 
     scores: dict[str, list[float]] = {"plain": [], "rlm": []}
     latency: dict[str, float] = {"plain": 0.0, "rlm": 0.0}
@@ -513,10 +563,12 @@ def run_benchmark(
     }
     succeeded = 0
     failed = 0
-    for example in selected:
+    for example_index, example in enumerate(selected, start=1):
         plain_prompt = spec.build_plain_prompt(example)
         rlm_prompt, root_prompt = spec.build_rlm_inputs(example)
         for mode in ("plain", "rlm"):
+            example_id = str(example["id"])
+            progress.log(example_index, example_id, mode, "running")
             call_started = time.perf_counter()
             error = ""
             call_result: CallResult | None = None
@@ -578,6 +630,25 @@ def run_benchmark(
                     "error": error,
                 },
             )
+            if error:
+                progress.log(
+                    example_index,
+                    example_id,
+                    mode,
+                    "error",
+                    elapsed=elapsed,
+                    error=error,
+                )
+            else:
+                progress.log(
+                    example_index,
+                    example_id,
+                    mode,
+                    "done",
+                    elapsed=elapsed,
+                    score=score_result.score,
+                    tokens=row_usage["total_tokens"],
+                )
 
     denominator = len(selected)
     mode_scores = {mode: sum(mode_values) / denominator for mode, mode_values in scores.items()}

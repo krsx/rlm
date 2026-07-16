@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -212,6 +213,7 @@ def test_summary_is_created_atomically_without_temp_file(tmp_path: Path) -> None
 
 def test_runner_pairs_same_examples_and_counts_inference_failures_as_zero(
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     create_snapshot(
         tmp_path / "data",
@@ -235,7 +237,7 @@ def test_runner_pairs_same_examples_and_counts_inference_failures_as_zero(
 
     def rlm_call(prompt: str, root_prompt: str, config: RunnerConfig) -> CallResult:
         calls.append(("rlm", root_prompt))
-        raise RuntimeError("inference failed")
+        raise RuntimeError("inference\nfailed")
 
     spec = BenchmarkSpec(
         benchmark="codeqa",
@@ -249,7 +251,7 @@ def test_runner_pairs_same_examples_and_counts_inference_failures_as_zero(
         is_canonical=lambda filters: True,
     )
     config = RunnerConfig(
-        model="model",
+        model="Qwen/Qwen3-1.7B",
         data_dir=tmp_path / "data",
         log_dir=tmp_path / "logs",
         num_examples=2,
@@ -289,7 +291,27 @@ def test_runner_pairs_same_examples_and_counts_inference_failures_as_zero(
     assert Path(summary["csv_path"]).exists()
     assert Path(summary["csv_path"]).with_suffix(".json").exists()
     csv_text = Path(summary["csv_path"]).read_text(encoding="utf-8")
-    assert csv_text.count("inference failed") == 2
+    assert csv_text.count("inference\nfailed") == 2
+
+    progress_lines = capsys.readouterr().out.splitlines()
+    assert len(progress_lines) == 8
+    for example_index, example_id in enumerate(selected, start=1):
+        offset = (example_index - 1) * 4
+        common = (
+            rf"\d{{2}}:\d{{2}}:\d{{2}} \| Qwen3-1\.7B \| codeqa \| "
+            rf"example {example_index}/2 \| id={example_id} \|"
+        )
+        assert re.fullmatch(rf"{common} plain \| running", progress_lines[offset])
+        assert re.fullmatch(
+            rf"{common} plain \| done \| \d+\.\d+s \| score=1\.000 \| tokens=3",
+            progress_lines[offset + 1],
+        )
+        assert re.fullmatch(rf"{common} rlm \| running", progress_lines[offset + 2])
+        assert re.fullmatch(
+            rf"{common} rlm \| error \| \d+\.\d+s \| "
+            r"RuntimeError: inference failed",
+            progress_lines[offset + 3],
+        )
 
 
 def test_startup_health_failure_creates_no_result_artifacts(tmp_path: Path) -> None:

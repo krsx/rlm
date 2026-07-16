@@ -56,11 +56,12 @@ run_benchmark() {
 }
 
 run_suite() {
-  local model="$1" base_url="$2" tag="$3"
+  local model="$1" base_url="$2" tag="$3" prefix
   for i in $(seq 1 "$ITERATIONS"); do
+    prefix="[$tag run $i/$ITERATIONS]"
     for benchmark in "${BENCHMARKS[@]}"; do
-      echo "[$tag] iteration $i/$ITERATIONS: $benchmark ($model)"
-      run_benchmark "$benchmark" "$model" "$base_url"
+      echo "$prefix $benchmark ($model)"
+      run_benchmark "$benchmark" "$model" "$base_url" 2>&1 | sed -u "s/^/$prefix /"
     done
   done
 }
@@ -85,4 +86,6 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
-echo "All 18 benchmark runs complete (9 per GPU). Results in $LOG_DIR"
+runs_per_gpu=$((${#BENCHMARKS[@]} * ITERATIONS))
+total_runs=$((runs_per_gpu * 2))
+echo "All $total_runs benchmark runs complete ($runs_per_gpu per GPU). Results in $LOG_DIR"
