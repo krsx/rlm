@@ -77,6 +77,7 @@ uv run pre-commit install
 - Keep concise and actionable
 - Update README when behavior changes
 - Avoid content duplication
+- Store implementation and design plan in `docs/plans` and report in `docs/report`
 
 ### Scope
 - Small, focused diffs

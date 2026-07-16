@@ -182,7 +182,7 @@ Source: [`zai-org/LongBench-v2`](https://huggingface.co/datasets/zai-org/LongBen
 
 - Read the published Hugging Face `train` split, which contains the evaluation
   records.
-- Retain the 50 rows in Code Repository Understanding / Code Repo QA.
+- Retain the 50 rows in Code Repository Understanding / Code repo QA.
 - Store the upstream ID, question, choices A-D, gold choice, context, difficulty,
   length bucket, domain, and sub-domain.
 - Validate that every gold answer is one of `A`, `B`, `C`, or `D`.
