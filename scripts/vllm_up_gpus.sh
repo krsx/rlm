@@ -11,7 +11,10 @@
 #   scripts/vllm_up_gpus.sh
 #
 # Override defaults by exporting: GPU0_MODEL, GPU1_MODEL, VLLM_PORT_0,
-# VLLM_PORT_1, VLLM_DTYPE, VLLM_IMAGE, HEALTH_TIMEOUT.
+# VLLM_PORT_1, VLLM_DTYPE_0, VLLM_DTYPE_1, VLLM_IMAGE, HEALTH_TIMEOUT.
+#
+# GPU0 defaults to float16: Turing cards (e.g. RTX 2080 Ti) have no native
+# bf16 support, so vLLM's dtype=auto (bf16 on modern GPUs) fails there.
 
 set -euo pipefail
 
@@ -21,7 +24,8 @@ GPU0_MODEL="${GPU0_MODEL:-Qwen/Qwen3-0.6B}"
 GPU1_MODEL="${GPU1_MODEL:-Qwen/Qwen3-1.7B}"
 VLLM_PORT_0="${VLLM_PORT_0:-8000}"
 VLLM_PORT_1="${VLLM_PORT_1:-8001}"
-VLLM_DTYPE="${VLLM_DTYPE:-auto}"
+VLLM_DTYPE_0="${VLLM_DTYPE_0:-float16}"
+VLLM_DTYPE_1="${VLLM_DTYPE_1:-auto}"
 VLLM_IMAGE="${VLLM_IMAGE:-vllm/vllm-openai:v0.8.5}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-900}"
 
@@ -29,7 +33,7 @@ CONTAINER_0="rlm-vllm-gpu0"
 CONTAINER_1="rlm-vllm-gpu1"
 
 start_vllm() {
-  local gpu="$1" model="$2" port="$3" name="$4"
+  local gpu="$1" model="$2" port="$3" name="$4" dtype="$5"
   docker rm -f "$name" >/dev/null 2>&1 || true
   # No --rm here: if the container crashes on startup we need `docker logs`
   # to still work afterward. vllm_down_gpus.sh removes it on teardown.
@@ -43,7 +47,7 @@ start_vllm() {
     --ipc=host \
     "$VLLM_IMAGE" \
     --model "$model" \
-    --dtype "$VLLM_DTYPE" >/dev/null
+    --dtype "$dtype" >/dev/null
 }
 
 wait_healthy() {
@@ -69,10 +73,10 @@ wait_healthy() {
   echo "$name is healthy."
 }
 
-echo "Starting vLLM server on GPU0 ($GPU0_MODEL, port $VLLM_PORT_0)..."
-start_vllm 0 "$GPU0_MODEL" "$VLLM_PORT_0" "$CONTAINER_0"
-echo "Starting vLLM server on GPU1 ($GPU1_MODEL, port $VLLM_PORT_1)..."
-start_vllm 1 "$GPU1_MODEL" "$VLLM_PORT_1" "$CONTAINER_1"
+echo "Starting vLLM server on GPU0 ($GPU0_MODEL, port $VLLM_PORT_0, dtype $VLLM_DTYPE_0)..."
+start_vllm 0 "$GPU0_MODEL" "$VLLM_PORT_0" "$CONTAINER_0" "$VLLM_DTYPE_0"
+echo "Starting vLLM server on GPU1 ($GPU1_MODEL, port $VLLM_PORT_1, dtype $VLLM_DTYPE_1)..."
+start_vllm 1 "$GPU1_MODEL" "$VLLM_PORT_1" "$CONTAINER_1" "$VLLM_DTYPE_1"
 
 wait_healthy "http://localhost:${VLLM_PORT_0}/v1" "$CONTAINER_0"
 wait_healthy "http://localhost:${VLLM_PORT_1}/v1" "$CONTAINER_1"
