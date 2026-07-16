@@ -61,7 +61,7 @@ run_suite() {
     prefix="[$tag run $i/$ITERATIONS]"
     for benchmark in "${BENCHMARKS[@]}"; do
       echo "$prefix $benchmark ($model)"
-      run_benchmark "$benchmark" "$model" "$base_url" 2>&1 | sed -u "s/^/$prefix /"
+      run_benchmark "$benchmark" "$model" "$base_url" 2>&1 | sed -u "s|^|$prefix |"
     done
   done
 }
